@@ -1,0 +1,17 @@
+{
+  "name": "chain",
+  "version": "1.0.0",
+  "main": "dist/bundle.js",
+  "license": "MIT",
+  "devDependencies": {
+    "babel-core": "^6.24.1",
+    "babel-loader": "^7.0.0",
+    "babel-preset-preact": "^1.1.0",
+    "prettier": "^1.3.1",
+    "webpack": "^2.5.1",
+    "webpack-dev-server": "^2.4.5"
+  },
+  "dependencies": {
+    "preact": "^8.1.0"
+  }
+}
