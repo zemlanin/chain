@@ -1,153 +1,137 @@
 import { h, render } from "preact";
+import EXPRESSIONS from './expressions'
 
 let queue = []
 let eventsHistory = []
 let cursor = 0
 
-function progress(position) {
-  if (position === void 0) {
-    if (cursor + 1 < chainState.length) {
-      position = cursor + 1
-    }
-  }
-
-  if (position !== void 0) {
-    cursor = position
-    const link = chainState[cursor]
-
-    if (LINKS[link.type].action) {
-      LINKS[link.type].action(link.opts)
-    }
-
-    if (LINKS[link.type].listen) {
-      const listens = LINKS[link.type].listen(link.opts)
-
-      if (listens && listens.event) {
-        queue.push({event: listens.event})
-      }
-
-      if (listens && listens.deadline) {
-        queue.push({deadline: listens.deadline})
-      }
-    }
-  }
-}
-
-setTimeout(function cleanQueue() {
-  for (const e of queue) {
-    if (e.deadline !== void 0) {
-      if (e.deadline < (new Date / 1000)) {
-        progress()
-
-        e.done = true
-      }
-    }
-
-    if (e.event !== void 0) {
-      const link = chainState[cursor]
-      if (LINKS[link.type].listen) {
-        const listens = LINKS[link.type].listen(link.opts)
-
-        if (listens && listens.event === e.event) {
-          progress()
-
-          e.done = true
-        }
-      } else {
-        e.done = true
-      }
-    }
-  }
-
-  queue = queue.filter(e => !e.done)
-
-  appNode = render(<App />, document.body, appNode)
-  setTimeout(cleanQueue, 1000)
-}, 1000)
-
 const LINKS = {
-  on: {
-    type: 'on',
+  start_on: {
+    type: 'start_on',
     opts: {
-      event: 'string'
-    },
-    action: opts => {
-
-    },
-    listen: opts => {
-      return {event: opts.event}
+      event: EXPRESSIONS.string.type,
+      identifier: EXPRESSIONS.string.type
     }
   },
   wait: {
     type: 'wait',
     opts: {
       seconds: 'number'
-    },
-    action: opts => {
-
-    },
-    listen: opts => {
-      return {deadline: (new Date / 1000) + opts.seconds}
     }
   },
-  push: {
-    type: 'push',
+  send: {
+    type: 'send',
     opts: {
-      service: 'string',
-      token: 'string'
-    },
-    action: opts => {
-      console.log('push', opts)
-    },
-    // listen: opts => {
-    //   delay(opts.seconds)
-    // }
+      service: EXPRESSIONS.string.type,
+      token: EXPRESSIONS.string.type
+    }
+  },
+  value: {
+    type: 'value',
+    opts: {
+      path: 'expression'
+    }
+  },
+  kill_on: {
+    type: 'kill_on',
+    opts: {
+      event: 'string',
+      condition: 'bool_expression'
+    }
+  },
+  if: {
+    type: 'if',
+    opts: {
+      condition: 'bool_expression',
+      then: 'link',
+      else: 'link'
+    }
+  },
+  nothing: {
+    type: 'nothing',
+    opts: {}
+  },
+  jump: {
+    type: 'jump',
+    opts: {
+      destination: EXPRESSIONS.link_reference.type
+    }
   }
 }
 
 const chainState = [
   {
-    type: LINKS.on.type,
-    opts: {event: 'start'}
+    label: 'edit',
+    type: LINKS.start_on.type,
+    opts: {
+      event: 'edit',
+      identifier: '.cart_id'
+    }
   },
   {
+    label: 'cart_id',
+    type: LINKS.value.type,
+    opts: {
+      expression: {
+        type: EXPRESSIONS.attribute.type,
+        opts: {
+          path: [
+            {
+              type: EXPRESSIONS.link_reference.type,
+              opts: {
+                label: 'edit'
+              }
+            },
+            {
+              type: EXPRESSIONS.string.type,
+              opts: {
+                value: 'cart_id'
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    label: 's',
     type: LINKS.wait.type,
-    opts: {seconds: 2}
+    opts: {
+      seconds: 2
+    }
   },
   {
-    type: LINKS.push.type,
+    type: LINKS.send.type,
     opts: {}
   },
 ]
 
-const Actions = props => <div>
-  <button onClick={() => queue.push({event: 'start'})}>
-    trigger <b>on</b>
-  </button>
-</div>
+const DefaultLink = props => [
+  props.label ? `${props.label} = ` : '',
+  props.type,
+  JSON.stringify(props.opts),
+].join('')
+
+const LinkComponents = {
+  start_on: require('./links/start_on.jsx').default,
+  value: require('./links/value.jsx').default,
+}
 
 const Chain = props => {
   return <ul>
     {chainState.map((s, i) =>
-      <li style={{textDecoration: i === cursor ? 'underline' : null }}>
-        {s.type}
-        {JSON.stringify(s.opts)}
+      <li>
+        { h(LinkComponents[s.type] || DefaultLink, s) }
       </li>
     )}
+    <button>+</button>
   </ul>
-}
-
-const Instances = props => {
-  return null
 }
 
 const App = props => (
   <div>
     <h1>Chain</h1>
-    <div>queue: {queue.length}</div>
-    <Actions />
     <Chain />
-    <Instances />
   </div>
 );
 
